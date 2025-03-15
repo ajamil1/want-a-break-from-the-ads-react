@@ -12,7 +12,7 @@ const TrackPlayer = () => {
   const getYoutubeVideosIDs = async () => {
     try {
       let nextPageToken = "";
-      const API_KEY = ""; // Use env var in production
+      const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
       const PLAYLIST_ID = "PLRdMBDNqSy0Q0NcuZjytIt9sxZOOhW942";
       let fetchedTracks = [];
 
