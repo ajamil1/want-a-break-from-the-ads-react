@@ -74,6 +74,7 @@ const TrackPlayer = () => {
   const handlePlayerEnded = () => {
     // window.location.reload(); 
     setPaused(false);
+    setShow(false)
     nextTrack(); // Automatically trigger nextTrack when the video ends
   };
 
@@ -104,6 +105,53 @@ const TrackPlayer = () => {
     nextTrack(); // Automatically trigger nextTrack when there is an error
   };
 
+  const checkIfVideoEnded = () => {
+    const iframe = document.getElementById("player");
+    const player = iframe.contentWindow;
+
+    // Send a message to get the current time and duration of the video
+    player.postMessage(
+      '{"event":"command","func":"getCurrentTime","args":[]}',
+      "*"
+    );
+
+    player.postMessage(
+      '{"event":"command","func":"getDuration","args":[]}',
+      "*"
+    );
+  };
+
+  // Listen to the response for current time and duration
+  useEffect(() => {
+    const handlePlayerMessage = (event) => {
+      if (event.origin === "https://www.youtube.com") {
+        const data = event.data;
+
+        // When receiving current time and duration
+        if (data.event === "infoDelivery") {
+          const currentTime = data.info.currentTime;
+          const duration = data.info.duration;
+
+          if (currentTime >= duration) {
+            console.log("Video reached the end, loading next track.");
+            nextTrack(); // Trigger nextTrack when the video ends
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handlePlayerMessage);
+
+    const intervalId = setInterval(() => {
+      checkIfVideoEnded(); // Check every second
+    }, 1000);
+
+    return () => {
+      window.removeEventListener("message", handlePlayerMessage);
+      clearInterval(intervalId); // Cleanup interval on component unmount
+    };
+  }, [playedTracks, trackList]);
+
   useEffect(() => {
     // Send message to iframe to load the video after selected track changes
     const iframe = document.getElementById("player");
@@ -118,7 +166,6 @@ const TrackPlayer = () => {
         <p>Loading...</p>
       ) : (
         <div className="relative flex flex-col"> 
-          {/* YouTube Iframe Player */}
           <iframe
           className="mx-auto"
             id="player"
