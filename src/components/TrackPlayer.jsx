@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 
 const TrackPlayer = () => {
-  const [playedTracks, setPlayedTracks] = useState([]);
+  const [playedTracks, setPlayedTracks] = useState([]); // Tracks that have already been played
   const [selectedTrack, setSelectedTrack] = useState({ name: "", id: "" });
-  const [paused, setPaused] = useState(false);
+  const [paused, setPaused] = useState(false); // Play/Pause state
   const [trackList, setTracks] = useState([]); // Store fetched tracks
   const [loading, setLoading] = useState(true); // Loading state
   const [show, setShow] = useState(false); // Tracklist visibility state
-  const [currentTimestamp, setCurrentTimestamp] = useState(0); // To store current timestamp
 
   const getYoutubeVideosIDs = async () => {
     try {
@@ -36,7 +35,7 @@ const TrackPlayer = () => {
         fetchedTracks = [...fetchedTracks, ...newTracks];
       } while (nextPageToken);
 
-      return fetchedTracks; // ✅ Return fetched tracks
+      return fetchedTracks;
     } catch (error) {
       console.error("Error fetching playlist items:", error);
       return []; // Return empty array in case of error
@@ -51,7 +50,7 @@ const TrackPlayer = () => {
   useEffect(() => {
     const fetchTracks = async () => {
       const tracksData = await getYoutubeVideosIDs();
-      setTracks(tracksData); // ✅ Update state with fetched tracks
+      setTracks(tracksData); // Update state with fetched tracks
       setLoading(false);
       setSelectedTrack(tracksData[Math.floor(Math.random() * tracksData.length)]); // Set random track after loading tracks
     };
@@ -59,8 +58,8 @@ const TrackPlayer = () => {
     fetchTracks();
   }, []);
 
-  // Function to select next track
-  const nextTrack = async () => {
+  // Function to select the next track
+  const nextTrack = () => {
     let x = Math.floor(Math.random() * trackList.length);
     while (playedTracks.includes(x)) {
       x = Math.floor(Math.random() * trackList.length);
@@ -71,78 +70,44 @@ const TrackPlayer = () => {
     setPlayedTracks((prevPlayedTracks) => [...prevPlayedTracks, x]);
   };
 
-  // Pause or play the video
+  // Function to handle player state change when the video ends
+  const handlePlayerEnded = () => {
+    // window.location.reload(); 
+    setPaused(false);
+    nextTrack(); // Automatically trigger nextTrack when the video ends
+  };
+
+  const handlePlayerReady = () => {
+    setPaused(false);  // Ensures the video will play as soon as it’s ready
+  };
+
+  // Handle player pause/play toggle
   const pauseOrPlay = () => {
+    setPaused((prevPaused) => !prevPaused);
     const iframe = document.getElementById("player");
     const playerWindow = iframe.contentWindow;
+
     if (paused) {
-      setPaused(false);
       playerWindow.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
     } else {
-      setPaused(true);
       playerWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
     }
   };
 
-  // Skip to the end of the video
-  const skipToEnd = () => {
+  // Handle video select
+  const handleTrackSelect = (track) => {
+    setSelectedTrack(track);
+    toggleTracklist();
+  };
+
+  const handlePlayerError = () => {
+    nextTrack(); // Automatically trigger nextTrack when there is an error
+  };
+
+  useEffect(() => {
+    // Send message to iframe to load the video after selected track changes
     const iframe = document.getElementById("player");
-    const playerWindow = iframe.contentWindow;
-    playerWindow.postMessage('{"event":"command","func":"seekTo","args":[99999,true]}', "*");
-  };
-
-  // Function to get the current timestamp from the video
-  const getCurrentTimestamp = () => {
-    const iframe = document.getElementById("player");
-    const playerWindow = iframe.contentWindow;
-    playerWindow.postMessage('{"event":"command","func":"getCurrentTime","args":[]}', "*");
-  };
-
-  // Listen for the current timestamp response from YouTube iframe
-  useEffect(() => {
-    window.addEventListener("message", (event) => {
-      if (event.origin === "https://www.youtube.com") {
-        const data = event.data;
-        if (data.event === "infoDelivery" && data.info && data.info.currentTime !== undefined) {
-          setCurrentTimestamp(data.info.currentTime); // Update the current timestamp state
-        }
-      }
-    });
-  }, []);
-
-  // YouTube player initialization
-  const loadYouTubeAPI = () => {
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(script);
-  };
-
-  const onPlayerStateChange = (event) => {
-    // Check if the video has ended
-    if (event.data === window.YT.PlayerState.ENDED) {
-      console.log("Video has ended");
-      nextTrack(); // Automatically trigger nextTrack when the video ends
-    }
-  };
-
-  const onPlayerError = async () => {
-    await nextTrack();
-  };
-
-  useEffect(() => {
-    loadYouTubeAPI();
-  }, []);
-
-//   useEffect(()=> {
-//     onPlayerStateChange(ENDED);
-//   }, []);
-
-  
-
-  useEffect(() => {
-    if (selectedTrack.id) {
-      // Updating the iframe src whenever the selected track changes
-      const iframe = document.getElementById("player");
+    if (iframe) {
       iframe.src = `https://www.youtube.com/embed/${selectedTrack.id}?autoplay=1&enablejsapi=1`;
     }
   }, [selectedTrack]);
@@ -152,48 +117,56 @@ const TrackPlayer = () => {
       {loading ? (
         <p>Loading...</p>
       ) : (
-        <div className="">
-          <button
-            onClick={toggleTracklist}
-            className="transition-all overflow-x-hidden justify-items-center items-center TrackList bg-black border border-orange-950"
-          >
-            Tracklist
-          </button>
-          {show && (
-            <ul className="mx-auto w-full h-screen justify-items-center overflow-y-scroll px-auto hide-scrollbar">
-              {trackList.map((track) => (
-                <li
-                  className="w-full pr-32 font-mono my-2 bg-black-950 hover:b border p-4 rounded-lg text-left border-orange-500 hover:bg-orange-950 opacity-50 hover:opacity-90 transition-all text-orange-600"
-                  key={track.id}
-                  onClick={() => {
-                    setSelectedTrack(track)
-                    toggleTracklist()    
-                }}
-                >
-                  {track.name}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Video Player (iframe) */}
+        <div className="relative flex flex-col"> 
+          {/* YouTube Iframe Player */}
           <iframe
+          className="mx-auto"
             id="player"
-            height="315"
             width="560"
-            title="YouTube Player"
+            height="315"
+            src={`https://www.youtube.com/embed/${selectedTrack.id}?autoplay=1&enablejsapi=1`}
             frameBorder="0"
             allow="autoplay; encrypted-media"
-            className="my-3"
-          ></iframe>
+            onLoad={handlePlayerReady}
+            onError={handlePlayerError}
+            title="YouTube Player"
+          />
 
-          <div className="mb-2">
+          <div className="mt-2">
             <h3>{selectedTrack.name}</h3>
           </div>
-          <div>
-            <button className="mr-2" onClick={pauseOrPlay}>{paused ? "Play" : "Pause"}</button>
-            <button onClick={skipToEnd}>Skip to End</button>
+          <div className="flex flex-row gap-3 w-full mx-auto p-0 justify-center mt-2">
+            <button onClick={pauseOrPlay}>
+              {paused ? 
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-14">
+              <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" clip-rule="evenodd" />
+            </svg> : 
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-14">
+          <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" clipRule="evenodd" />
+          </svg>}
+              
+            </button>
+            
+            <button onClick={handlePlayerEnded}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-14">
+                    <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 1 0 1.06 1.06l3-3Z" clipRule="evenodd" />
+                  </svg>
+            </button>
           </div>
+          <button className="w-fit mx-auto my-2" onClick={toggleTracklist}>Tracklist</button>
+            {show && (
+              <ul className="text-left top-0 overflow-y-scroll">
+                {trackList.map((track) => (
+                  <li
+                    className="py-2 px-4 border rounded-full mb-3"
+                    key={track.id}
+                    onClick={() => handleTrackSelect(track)}
+                  >
+                    {track.name}
+                  </li>
+                ))}
+              </ul>
+            )}
         </div>
       )}
     </div>
