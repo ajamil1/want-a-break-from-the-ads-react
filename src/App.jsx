@@ -4,7 +4,7 @@ import './App.css'
 function App() {
 	return (
 		<>		
-			<div className="bg-black w-full h-full justify-items-center my-auto">
+			<div className="bg-black w-screen h-screen justify-items-center my-auto">
 				<TrackPlayer/>
 			</div>	
 		</>

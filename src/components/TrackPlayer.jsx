@@ -202,7 +202,7 @@ const TrackPlayer = () => {
           </div>
           <button className="w-fit mx-auto my-2" onClick={toggleTracklist}>Tracklist</button>
             {show && (
-              <ul className="text-left top-0 overflow-y-scroll">
+              <ul className="text-left top-0 overflow-y-scroll bg-black px-12">
                 {trackList.map((track) => (
                   <li
                     className="py-2 px-4 border rounded-full mb-3"
